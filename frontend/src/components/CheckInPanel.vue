@@ -11,7 +11,7 @@
 			<Button
 				class="mt-4 mb-1 drop-shadow-sm py-5 text-base"
 				id="open-checkin-modal"
-				@click="checkinTimestamp = dayjs().format('YYYY-MM-DD HH:mm:ss')"
+				@click="fetchLocation"
 			>
 				<template #prefix>
 					<FeatherIcon
@@ -38,9 +38,9 @@
 		:breakpoints="[0, 1]"
 	>
 		<div
-			class="h-40 w-full flex flex-col items-center justify-center gap-5 p-4 mb-5"
+			class="h-120 w-full flex flex-col items-center justify-center gap-5 p-4 mb-5"
 		>
-			<div class="flex flex-col gap-1.5 items-center justify-center">
+			<div class="flex flex-col gap-1.5 mt-2 items-center justify-center">
 				<div class="font-bold text-xl">
 					{{ dayjs(checkinTimestamp).format("hh:mm:ss a") }}
 				</div>
@@ -48,6 +48,27 @@
 					{{ dayjs().format("D MMM, YYYY") }}
 				</div>
 			</div>
+
+			<span v-if="locationStatus" class="font-medium text-gray-500 text-sm">
+				{{ locationStatus }}
+			</span>
+
+			<div
+				class="rounded border-4 translate-z-0 block overflow-hidden w-full h-170"
+			>
+				<iframe
+					width="100%"
+					height="170"
+					frameborder="0"
+					scrolling="no"
+					marginheight="0"
+					marginwidth="0"
+					style="border: 0"
+					:src="`https://maps.google.com/maps?q=${latitude},${longitude}&hl=en&z=15&amp;output=embed`"
+				>
+				</iframe>
+			</div>
+
 			<Button
 				variant="solid"
 				class="w-full py-5 text-sm"
@@ -71,6 +92,9 @@ const socket = inject("$socket")
 const employee = inject("$employee")
 const dayjs = inject("$dayjs")
 const checkinTimestamp = ref(null)
+const latitude = ref("")
+const longitude = ref("")
+const locationStatus = ref("")
 
 const checkins = createListResource({
 	doctype: DOCTYPE,
@@ -115,6 +139,36 @@ const lastLogTime = computed(() => {
 
 	return `${formattedTime} on ${dayjs(timestamp).format("D MMM, YYYY")}`
 })
+
+function handleLocationSuccess(position) {
+	latitude.value = position.coords.latitude
+	longitude.value = position.coords.longitude
+
+	locationStatus.value = `
+		Latitude: ${Number(latitude.value).toFixed(5)}°,
+		Longitude: ${Number(longitude.value).toFixed(5)}°
+	`
+}
+
+function handleLocationError(error) {
+	locationStatus.value = "Unable to retrieve your location"
+	if (error) locationStatus.value += `: ERROR(${error.code}): ${error.message}`
+}
+
+const fetchLocation = () => {
+	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")
+
+	if (!navigator.geolocation) {
+		locationStatus.value =
+			"Geolocation is not supported by your current browser"
+	} else {
+		locationStatus.value = "Locating..."
+		navigator.geolocation.getCurrentPosition(
+			handleLocationSuccess,
+			handleLocationError
+		)
+	}
+}
 
 const submitLog = (logType) => {
 	const action = logType === "IN" ? "Check-in" : "Check-out"
