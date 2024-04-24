@@ -75,7 +75,6 @@ def prepare_data(entry, component_type_dict):
 	)
 
 	for d in entry:
-
 		component_type = component_type_dict.get(d.salary_component)
 
 		if data_list.get(d.name):
@@ -123,10 +122,10 @@ def get_data(filters):
 		where sal.name = ded.parent
 		and ded.parentfield = 'deductions'
 		and ded.parenttype = 'Salary Slip'
-		and sal.docstatus = 1 %s
-		and ded.salary_component in (%s)
-	"""
-		% (conditions, ", ".join(["%s"] * len(component_type_dict))),
+		and sal.docstatus = 1 {}
+		and ded.salary_component in ({})
+	""",
+		(conditions, ", ".join(["%s"] * len(component_type_dict.keys()))),
 		tuple(component_type_dict.keys()),
 		as_dict=1,
 	)
