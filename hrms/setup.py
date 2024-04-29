@@ -306,10 +306,22 @@ def create_salary_slip_loan_fields():
 		create_custom_fields(SALARY_SLIP_LOAN_FIELDS, ignore_validate=True)
 
 
+def add_lending_docperms_to_ess():
+	doc = frappe.get_doc("User Type", "Employee Self Service")
+
+	loan_docperms = get_lending_docperms_for_ess()
+	append_docperms_to_user_type(loan_docperms, doc)
+
+	doc.name = "Employee Self Service"
+	doc.save(ignore_permissions=True)
+
+
 def after_app_install(app_name):
 	"""Set up loan integration with payroll"""
 	if app_name != "lending":
 		return
+
+	add_lending_docperms_to_ess()
 
 	print("Updating payroll setup for loans")
 	create_custom_fields(SALARY_SLIP_LOAN_FIELDS, ignore_validate=True)
@@ -507,6 +519,7 @@ def add_non_standard_user_types():
 	user_types = get_user_types_data()
 
 	user_type_limit = {}
+
 	for user_type, __ in user_types.items():
 		user_type_limit.setdefault(frappe.scrub(user_type), 30)
 
@@ -559,6 +572,14 @@ def get_user_types_data():
 	}
 
 
+def get_lending_docperms_for_ess():
+	return {
+		"Loan": ["read"],
+		"Loan Application": ["read", "write", "create", "delete", "submit"],
+		"Loan Product": ["read"],
+	}
+
+
 def create_custom_role(data):
 	if data.get("role") and not frappe.db.exists("Role", data.get("role")):
 		frappe.get_doc(
@@ -587,7 +608,14 @@ def create_user_type(user_type, data):
 
 
 def create_role_permissions_for_doctype(doc, data):
-	for doctype, perms in data.get("doctypes").items():
+	append_docperms_to_user_type(data.get("doctypes"), doc)
+
+	if doc.role == "Employee Self Service" and "lending" in frappe.get_installed_apps():
+		append_docperms_to_user_type(get_lending_docperms_for_ess(), doc)
+
+
+def append_docperms_to_user_type(docperms, doc):
+	for doctype, perms in docperms.items():
 		args = {"document_type": doctype}
 		for perm in perms:
 			args[perm] = 1
